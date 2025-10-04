@@ -4,57 +4,73 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
-interface MathProblem {
-  problem_text: string;
-  correct_answer: number;
-}
+import { api } from "../lib/fetchUtils";
+import {
+  DIFFICULTY_LEVEL,
+  MathProblem,
+  MathProblemAPIRequestType,
+  MathProblemAPIResponseType,
+} from "./types";
 
+// TODO Easy, Medium, Hard picker
 export default function Home() {
   const [problem, setProblem] = useState<MathProblem | null>(null);
+  const [difficultyLevel, setDifficultyLevel] =
+    useState<DIFFICULTY_LEVEL>("MEDIUM");
   const [userAnswer, setUserAnswer] = useState("");
   const [feedback, setFeedback] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isProblemLoading, setIsProblemLoading] = useState(false);
+  const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
 
   const generateProblem = async () => {
-    setIsLoading(true);
+    setIsProblemLoading(true);
     setFeedback("");
     setUserAnswer("");
     setIsCorrect(null);
 
-    const newProblem = await fetch("/api/math-problem", {
-      method: "POST",
-    }).then(async (res) => await res.json());
+    try {
+      const newProblem = await api<
+        MathProblemAPIRequestType,
+        MathProblemAPIResponseType
+      >("/api/math-problem", "POST", {
+        difficulty_level: difficultyLevel,
+      });
 
-    setProblem({
-      problem_text: newProblem["problem_text"],
-      correct_answer: newProblem["correct_answer"],
-    });
+      setProblem({
+        problem_text: newProblem.problem_text,
+        correct_answer: newProblem.correct_answer,
+      });
 
-    setSessionId(newProblem["session_id"]);
-    setIsLoading(false);
+      setSessionId(newProblem.session_id);
+    } catch (error) {
+      //  TODO Show an error notif
+    } finally {
+      setIsProblemLoading(false);
+    }
   };
 
   const submitAnswer = async (e: React.FormEvent) => {
-    // TODO: Implement answer submission logic
+    setIsFeedbackLoading(true);
     setFeedback("");
     setIsCorrect(null);
 
     e.preventDefault();
 
-    const checkAnswer = await fetch("/api/math-problem/submit", {
-      method: "POST",
-      body: JSON.stringify({
+    try {
+      const checkAnswer = await api("/api/math-problem/submit", "POST", {
         session_id: sessionId,
         answer: Number(userAnswer),
-      }),
-    }).then(async (res) => await res.json());
+      });
 
-    setIsCorrect(checkAnswer["isCorrect"]);
-    setFeedback(checkAnswer["feedback"]);
-    // This should call your API route to check the answer,
-    // save the submission, and generate feedback
+      setIsCorrect(checkAnswer["isCorrect"]);
+      setFeedback(checkAnswer["feedback"]);
+    } catch (error) {
+      // TODO Show an error notif
+    } finally {
+      setIsFeedbackLoading(false);
+    }
   };
 
   return (
@@ -67,10 +83,10 @@ export default function Home() {
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <button
             onClick={generateProblem}
-            disabled={isLoading}
+            disabled={isProblemLoading}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200 ease-in-out transform hover:scale-105"
           >
-            {isLoading ? "Generating..." : "Generate New Problem"}
+            {isProblemLoading ? "Generating..." : "Generate New Problem"}
           </button>
         </div>
 
@@ -104,10 +120,12 @@ export default function Home() {
 
               <button
                 type="submit"
-                disabled={!userAnswer || isLoading}
+                disabled={!userAnswer || isProblemLoading || isFeedbackLoading}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200 ease-in-out transform hover:scale-105"
               >
-                Submit Answer
+                {isFeedbackLoading
+                  ? "Checking your answer..."
+                  : "Submit Answer"}
               </button>
             </form>
           </div>
