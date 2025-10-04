@@ -15,28 +15,36 @@
 
 import { GenerateContentConfig, Type } from "@google/genai";
 import { executePrompt } from "../../../lib/geminiClient";
-import { FULL_SYLLABUS_TEXT } from "./syllabus";
-import * as z from "zod";
+import { STRUCTURED_SYLLABUS_DATA } from "./syllabus";
 import { InsertType, supabase } from "../../../lib/supabaseClient";
+import { MathProblemRequestSchema, MathProblemResponseSchema } from "./schema";
 
 const GenerateMathProblemConfig: GenerateContentConfig = {
   responseMimeType: "application/json",
   systemInstruction: `
-  You are an expert curriculum designer for Primary 5 students. Your sole task is to generate high-quality math word problems based on the rules below.
+    You are an expert curriculum designer for Primary 5 students. Your sole task is to generate a high-quality math word problem based on the provided topic and difficulty level.
 
-  **PRIMARY RULE: KNOWLEDGE CONFINEMENT**
-  You must **only** generate problems that strictly relate to and fall under one of the four approved curriculum topics listed below.
+    **DIFFICULTY LEVEL DEFINITIONS (STRICTLY ADHERE TO THE ONE REQUESTED):**
+    
+    EASY:
+    - Requires **one** step of calculation.
+    - Uses simple, whole numbers or common fractions.
+    - Requires direct application of the core concept.
+    
+    MEDIUM:
+    - Requires **two to three** steps of calculation.
+    - May involve decimals, mixed numbers, or converting between units (e.g., m to cm).
+    - Requires combining two closely related concepts (e.g., area of a square then subtraction).
+    
+    HARD:
+    - Requires **three or more** complex steps.
+    - Involves non-standard units, large numbers, or a multi-part calculation leading to a final answer.
+    - The problem wording should be deliberately challenging or involve an unfamiliar scenario.
 
-  **APPROVED CURRICULUM TOPICS:**
-  1. Fractions (Addition and Subtraction of mixed numbers only)
-  2. Decimals (Money problems only, ensuring the total is over $100)
-  3. Ratios (Solving for an unknown quantity using a given ratio)
-  4. Area and Perimeter (Compound shapes made of two rectangles)
-
-  **STRICT OUTPUT FORMATTING RULE:**
-  The answer you generate for the 'correct_answer' field in the JSON schema **must be a plain, unit-less numerical value**. Do not include any text, unit symbols (like 'cm', 'kg', '$', or 'litres'), or explanatory words in the final answer—only the number itself.
-`,
-  temperature: 0.5,
+    **STRICT OUTPUT FORMATTING RULE:**
+    The answer for 'correct_answer' in the JSON schema **must be a plain, unit-less numerical value**. Do not include any text, unit symbols, or explanatory words.
+    `,
+  temperature: 0.7,
   responseSchema: {
     type: Type.OBJECT,
     properties: {
@@ -50,25 +58,33 @@ const GenerateMathProblemConfig: GenerateContentConfig = {
   },
 };
 
-const MathProblemResponseSchema = z.object({
-  problem_text: z.string(),
-  correct_answer: z.number(),
-  session_id: z.uuid(),
-});
-
-// TODO Select random topic
+// TODO Obfuscate response
 export async function POST(request: Request) {
+  const rawBody = await request.json();
+  const requestBody = MathProblemRequestSchema.parse(rawBody);
+
+  // Get a random index
+  const randomIndex = Math.floor(
+    Math.random() * STRUCTURED_SYLLABUS_DATA.length
+  );
+
+  // Get the element at the random index
+  const randomTopic = STRUCTURED_SYLLABUS_DATA[randomIndex];
+
   // 1. Use Google's Gemini AI to generate a math word problem
+
+  const promptContents = `
+    Generate a **${requestBody.difficulty_level}** difficulty word problem.
+
+    The problem must strictly and only adhere to the **primary math concept**: "${randomTopic.sub_strand}". 
+
+    Use the following related topics as contextual knowledge to ensure accuracy:
+    --- CONTEXT ---
+    ${randomTopic.topics.join(",")}
+    ---------------    `;
+
   const output = await executePrompt({
-    contents: `
-    Generate a word problem.
-
-    The problem must strictly adhere to ONE random sub-topic chosen from the following syllabus. 
-
-    --- SYLLABUS REFERENCE ---
-    ${FULL_SYLLABUS_TEXT}
-    ---------------------------
-    `,
+    contents: promptContents,
     config: GenerateMathProblemConfig,
   });
 
@@ -79,7 +95,7 @@ export async function POST(request: Request) {
     correct_answer: geminiResponse["correct_answer"] as number,
   };
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("math_problem_sessions")
     .insert([dataToInsert] as never)
     .select();
