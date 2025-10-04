@@ -1,32 +1,61 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-
+import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
 interface MathProblem {
-  problem_text: string
-  final_answer: number
+  problem_text: string;
+  correct_answer: number;
 }
 
 export default function Home() {
-  const [problem, setProblem] = useState<MathProblem | null>(null)
-  const [userAnswer, setUserAnswer] = useState('')
-  const [feedback, setFeedback] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
+  const [problem, setProblem] = useState<MathProblem | null>(null);
+  const [userAnswer, setUserAnswer] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
 
   const generateProblem = async () => {
-    // TODO: Implement problem generation logic
-    // This should call your API route to generate a new problem
-    // and save it to the database
-  }
+    setIsLoading(true);
+    setFeedback("");
+    setUserAnswer("");
+    setIsCorrect(null);
+
+    const newProblem = await fetch("/api/math-problem", {
+      method: "POST",
+    }).then(async (res) => await res.json());
+
+    setProblem({
+      problem_text: newProblem["problem_text"],
+      correct_answer: newProblem["correct_answer"],
+    });
+
+    setSessionId(newProblem["session_id"]);
+    setIsLoading(false);
+  };
 
   const submitAnswer = async (e: React.FormEvent) => {
-    e.preventDefault()
     // TODO: Implement answer submission logic
+    setFeedback("");
+    setIsCorrect(null);
+
+    e.preventDefault();
+
+    const checkAnswer = await fetch("/api/math-problem/submit", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        answer: Number(userAnswer),
+      }),
+    }).then(async (res) => await res.json());
+
+    setIsCorrect(checkAnswer["isCorrect"]);
+    setFeedback(checkAnswer["feedback"]);
     // This should call your API route to check the answer,
     // save the submission, and generate feedback
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -34,27 +63,32 @@ export default function Home() {
         <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
           Math Problem Generator
         </h1>
-        
+
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <button
             onClick={generateProblem}
             disabled={isLoading}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200 ease-in-out transform hover:scale-105"
           >
-            {isLoading ? 'Generating...' : 'Generate New Problem'}
+            {isLoading ? "Generating..." : "Generate New Problem"}
           </button>
         </div>
 
         {problem && (
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-700">Problem:</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-700">
+              Problem:
+            </h2>
             <p className="text-lg text-gray-800 leading-relaxed mb-6">
               {problem.problem_text}
             </p>
-            
+
             <form onSubmit={submitAnswer} className="space-y-4">
               <div>
-                <label htmlFor="answer" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="answer"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Your Answer:
                 </label>
                 <input
@@ -67,7 +101,7 @@ export default function Home() {
                   required
                 />
               </div>
-              
+
               <button
                 type="submit"
                 disabled={!userAnswer || isLoading}
@@ -80,14 +114,20 @@ export default function Home() {
         )}
 
         {feedback && (
-          <div className={`rounded-lg shadow-lg p-6 ${isCorrect ? 'bg-green-50 border-2 border-green-200' : 'bg-yellow-50 border-2 border-yellow-200'}`}>
+          <div
+            className={`rounded-lg shadow-lg p-6 ${isCorrect ? "bg-green-50 border-2 border-green-200" : "bg-yellow-50 border-2 border-yellow-200"}`}
+          >
             <h2 className="text-xl font-semibold mb-4 text-gray-700">
-              {isCorrect ? '✅ Correct!' : '❌ Not quite right'}
+              {isCorrect ? "✅ Correct!" : "❌ Not quite right"}
             </h2>
-            <p className="text-gray-800 leading-relaxed">{feedback}</p>
+            <div className="text-gray-800 leading-relaxed prose">
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                {feedback}
+              </ReactMarkdown>
+            </div>
           </div>
         )}
       </main>
     </div>
-  )
+  );
 }
