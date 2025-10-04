@@ -37,7 +37,6 @@ export default function Home() {
   };
 
   const submitAnswer = async (e: React.FormEvent) => {
-    // TODO: Implement answer submission logic
     setFeedback("");
     setIsCorrect(null);
 
@@ -53,8 +52,6 @@ export default function Home() {
 
     setIsCorrect(checkAnswer["isCorrect"]);
     setFeedback(checkAnswer["feedback"]);
-    // This should call your API route to check the answer,
-    // save the submission, and generate feedback
   };
 
   return (

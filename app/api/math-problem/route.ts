@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from("math_problem_sessions")
-    .insert([dataToInsert])
+    .insert([dataToInsert] as never)
     .select();
 
   //   Return the problem and session ID to the frontend

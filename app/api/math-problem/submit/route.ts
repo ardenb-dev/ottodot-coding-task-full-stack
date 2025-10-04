@@ -90,7 +90,9 @@ export async function POST(request: Request) {
     feedback_text: feedbackResponse,
   };
 
-  await supabase.from("math_problem_submissions").insert([dataToInsert]);
+  await supabase
+    .from("math_problem_submissions")
+    .insert([dataToInsert] as never);
 
   const resultSet: MathProblemSubmitResponseType = {
     isCorrect: isCorrect,
