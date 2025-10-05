@@ -140,9 +140,9 @@ When submitting your assessment, provide:
 
 ### My Implementation:
 
-- 
-- 
-- 
+- In order to reduce waiting time when generating a feedback for the user, a content stream was used instead of a regular generated content.
+- When the user gives an incorrect answer, the model will provide a hint solution without revealing the exact solution of the problem
+- The difficulty also increases the amount of related topics each problem is generated
 
 ## Additional Features (Optional)
 

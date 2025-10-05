@@ -11,6 +11,7 @@ import {
   MathProblemAPIRequestType,
   MathProblemAPIResponseType,
 } from "./types";
+import { BannerComponent } from "../components/BannerComponent";
 
 const options: DIFFICULTY_LEVEL[] = ["EASY", "MEDIUM", "HARD"];
 
@@ -24,6 +25,7 @@ export default function Home() {
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [error, setError] = useState<boolean>(false);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -31,13 +33,14 @@ export default function Home() {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [feedback]);
+  }, [feedback, isCorrect]);
 
   const generateProblem = async () => {
     setIsProblemLoading(true);
     setFeedback("");
     setUserAnswer("");
     setIsCorrect(null);
+    setError(false);
 
     try {
       const newProblem = await api<
@@ -54,7 +57,7 @@ export default function Home() {
 
       setSessionId(newProblem.session_id);
     } catch (error) {
-      //  TODO Show an error notif
+      setError(true);
     } finally {
       setIsProblemLoading(false);
     }
@@ -64,6 +67,7 @@ export default function Home() {
     setIsFeedbackLoading(true);
     setFeedback("");
     setIsCorrect(Number(userAnswer) === problem.correct_answer);
+    setError(false);
 
     e.preventDefault();
 
@@ -87,7 +91,7 @@ export default function Home() {
         setFeedback((prev) => prev + decoder.decode(value));
       }
     } catch (error) {
-      // TODO Show an error notif
+      setError(true);
     } finally {
       setIsFeedbackLoading(false);
     }
@@ -99,6 +103,12 @@ export default function Home() {
         <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
           Math Problem Generator
         </h1>
+
+        {error && (
+          <div className="my-2">
+            <BannerComponent message="An error has occured" />
+          </div>
+        )}
 
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6 flex gap-2 w-full">
           <button
