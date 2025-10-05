@@ -102,7 +102,6 @@ export async function POST(request: Request) {
 
   // 2. Select the required number of distinct random topics
   const selectedTopics = selectRandomTopics(topicCount);
-  console.log("SELECTED TOPICS", selectedTopics);
 
   // 3. Prepare the topics and context for the prompt
   const primaryConcepts = selectedTopics
