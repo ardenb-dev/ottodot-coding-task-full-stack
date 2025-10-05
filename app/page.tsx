@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -12,7 +12,8 @@ import {
   MathProblemAPIResponseType,
 } from "./types";
 
-// TODO Easy, Medium, Hard picker
+const options: DIFFICULTY_LEVEL[] = ["EASY", "MEDIUM", "HARD"];
+
 export default function Home() {
   const [problem, setProblem] = useState<MathProblem | null>(null);
   const [difficultyLevel, setDifficultyLevel] =
@@ -23,6 +24,14 @@ export default function Home() {
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [feedback]);
 
   const generateProblem = async () => {
     setIsProblemLoading(true);
@@ -54,18 +63,29 @@ export default function Home() {
   const submitAnswer = async (e: React.FormEvent) => {
     setIsFeedbackLoading(true);
     setFeedback("");
-    setIsCorrect(null);
+    setIsCorrect(Number(userAnswer) === problem.correct_answer);
 
     e.preventDefault();
 
     try {
-      const checkAnswer = await api("/api/math-problem/submit", "POST", {
-        session_id: sessionId,
-        answer: Number(userAnswer),
-      });
+      const checkAnswer = await api(
+        "/api/math-problem/submit",
+        "POST",
+        {
+          session_id: sessionId,
+          answer: Number(userAnswer),
+        },
+        true
+      );
 
-      setIsCorrect(checkAnswer["isCorrect"]);
-      setFeedback(checkAnswer["feedback"]);
+      const reader = checkAnswer.body?.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
+        setFeedback((prev) => prev + decoder.decode(value));
+      }
     } catch (error) {
       // TODO Show an error notif
     } finally {
@@ -80,7 +100,7 @@ export default function Home() {
           Math Problem Generator
         </h1>
 
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6 flex gap-2 w-full">
           <button
             onClick={generateProblem}
             disabled={isProblemLoading}
@@ -88,6 +108,21 @@ export default function Home() {
           >
             {isProblemLoading ? "Generating..." : "Generate New Problem"}
           </button>
+          <div className="inline-flex border rounded-lg select-none">
+            {options.map((option) => (
+              <button
+                key={option}
+                className={`px-4 py-2 font-semibold transition-colors duration-200  ${
+                  difficultyLevel === option
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-00 hover:bg-gray-300"
+                }`}
+                onClick={() => setDifficultyLevel(option)}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
         </div>
 
         {problem && (
@@ -112,7 +147,7 @@ export default function Home() {
                   id="answer"
                   value={userAnswer}
                   onChange={(e) => setUserAnswer(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-red"
                   placeholder="Enter your answer"
                   required
                 />
@@ -131,7 +166,7 @@ export default function Home() {
           </div>
         )}
 
-        {feedback && (
+        {isCorrect !== null && (
           <div
             className={`rounded-lg shadow-lg p-6 ${isCorrect ? "bg-green-50 border-2 border-green-200" : "bg-yellow-50 border-2 border-yellow-200"}`}
           >
@@ -140,9 +175,10 @@ export default function Home() {
             </h2>
             <div className="text-gray-800 leading-relaxed prose">
               <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                {feedback}
+                {feedback || "Generating feedback..."}
               </ReactMarkdown>
             </div>
+            <div ref={bottomRef} />
           </div>
         )}
       </main>

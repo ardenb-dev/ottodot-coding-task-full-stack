@@ -8,7 +8,7 @@ if (!process.env.GEMINI_API_KEY) {
 // Initialize the GoogleGenAI client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Get a specific model service instance
+// Returns the prompt
 export const executePrompt = (
   parameters: Omit<GenerateContentParameters, "model">
 ) => {
@@ -18,5 +18,12 @@ export const executePrompt = (
   });
 };
 
-// You can export other services like image generation or embeddings here
-// export const imageGenerator = ai.models.getImageModel({ model: "imagen-3.0-generate-002" });
+// Returns the prompt as a stream
+export const executeStreamPrompt = (
+  parameters: Omit<GenerateContentParameters, "model">
+) => {
+  return ai.models.generateContentStream({
+    model: "gemini-2.5-flash",
+    ...parameters,
+  });
+};
